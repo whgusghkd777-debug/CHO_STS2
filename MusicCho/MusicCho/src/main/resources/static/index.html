@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MusicShare - 크리에이터를 위한 피드백 광장</title>
+    <style>
+        /* 너의 기존 스타일 그대로 유지 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #FF2D55;
+            --secondary: #5856D6;
+            --bg-primary: #F5F5F7;
+            --bg-secondary: #FFFFFF;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --border: #E5E5E7;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        body { font-family: -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); }
+        .navbar { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000; }
+        .navbar-content { max-width: 1200px; margin: 0 auto; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 24px; font-weight: 800; background: linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; cursor: pointer; }
+        .nav-right { display: flex; align-items: center; gap: 10px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+        .tab-menu { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .btn-pill { padding: 10px 20px; border-radius: 30px; border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 600; transition: 0.3s; font-size: 14px; }
+        .btn-pill.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .btn-outline { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--primary); color: var(--primary); background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; }
+        .music-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; }
+        .music-card { background: white; border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); transition: 0.3s; cursor: pointer; border: 1px solid transparent; position: relative; }
+        .music-card:hover { transform: translateY(-8px); border-color: var(--primary); }
+        .rank-badge { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.7); color: gold; padding: 4px 10px; border-radius: 12px; font-weight: bold; font-size: 12px; z-index: 10; border: 1px solid gold; }
+        .card-thumb { width: 100%; height: 180px; position: relative; background: #222; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .card-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+        .media-tag { position: absolute; top: 12px; left: 12px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; color: white; text-transform: uppercase; z-index: 5; }
+        .tag-youtube { background: #FF0000; }
+        .tag-audio { background: var(--secondary); }
+        .card-body { padding: 20px; }
+        .card-body h3 { font-size: 18px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-body p { font-size: 14px; color: var(--text-secondary); margin-bottom: 15px; }
+        .score-mini { display: flex; gap: 5px; align-items: center; font-size: 12px; color: var(--primary); font-weight: bold; }
+        .score-bar-bg { flex: 1; height: 4px; background: #eee; border-radius: 2px; }
+        .score-bar-fill { height: 100%; background: var(--primary); border-radius: 2px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; width: 100%; max-width: 900px; border-radius: 24px; max-height: 90vh; overflow-y: auto; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: var(--text-secondary); }
+        .input-group input, .input-group textarea, .input-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 30px; background: var(--primary); color: white; border: none; font-size: 30px; cursor: pointer; box-shadow: 0 4px 15px rgba(255,45,85,0.4); z-index: 100; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="logo" onclick="location.reload()">🎵 CreatorShare</div>
+            <div class="nav-right" id="authSection">
+                <button class="btn-outline" onclick="openModal('login')">로그인</button>
+                <button class="btn-pill" style="padding: 6px 14px; font-size: 12px;" onclick="openModal('signup')">회원가입</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="tab-menu" id="filterMenu">
+            <button class="btn-pill active" onclick="filterType('ALL')">전체보기</button>
+            <button class="btn-pill" onclick="filterRanking()">🏆 실시간 랭킹</button>
+            <button class="btn-pill" onclick="filterType('YOUTUBE')">유튜브 공유</button>
+            <button class="btn-pill" onclick="filterType('AUDIO')">음원 업로드</button>
+        </div>
+        <div id="musicGrid" class="music-grid"></div>
+    </div>
+
+    <button class="fab" onclick="openModal('share')">+</button>
+
+    <!-- 회원가입 모달 -->
+    <div class="modal" id="signupModal">
+        <div class="modal-content" style="max-width: 400px; padding: 40px;">
+            <h2 style="margin-bottom: 25px; text-align: center;">새로운 크리에이터 가입</h2>
+            <div class="input-group">
+                <label>아이디</label>
+                <input type="text" id="regId" placeholder="사용할 아이디 입력">
+            </div>
+            <div class="input-group">
+                <label>닉네임</label>
+                <input type="text" id="regName" placeholder="활동명(닉네임)">
+            </div>
+            <div class="input-group">
+                <label>비밀번호</label>
+                <input type="password" id="regPw" placeholder="비밀번호 입력">
+            </div>
+            <button class="btn-pill active" style="width: 100%; margin-top: 10px;" onclick="handleSignup()">회원가입 완료</button>
+            <button onclick="closeModal('signup')" style="width:100%; margin-top:10px; background:none; border:none; color:#888; cursor:pointer;">닫기</button>
+        </div>
+    </div>
+
+    <!-- 로그인 모달 -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content" style="max-width: 400px; padding: 40px;">
+            <h2 style="margin-bottom: 25px; text-align: center;">CreatorShare 로그인</h2>
+            <div class="input-group">
+                <input type="text" id="loginId" placeholder="아이디">
+            </div>
+            <div class="input-group">
+                <input type="password" id="loginPw" placeholder="비밀번호">
+            </div>
+            <button class="btn-pill active" style="width: 100%; margin-top: 10px;" onclick="handleLogin()">로그인하기</button>
+            <p style="text-align: center; font-size: 13px; margin-top: 15px; color: #888;">
+                계정이 없으신가요? <a href="javascript:void(0)" onclick="closeModal('login'); openModal('signup');" style="color:var(--primary);">회원가입</a>
+            </p>
+            <button onclick="closeModal('login')" style="width:100%; margin-top:10px; background:none; border:none; color:#888; cursor:pointer;">취소</button>
+        </div>
+    </div>
+
+    <!-- 상세 모달 -->
+    <div class="modal" id="detailModal">
+        <div class="modal-content" style="display: grid; grid-template-columns: 1.5fr 1fr;">
+            <div style="padding: 30px; border-right: 1px solid var(--border);">
+                <div id="mediaContainer" style="margin-bottom: 20px;"></div>
+                <h2 id="mTitle">곡 제목</h2>
+                <p id="mArtist" style="color:var(--text-secondary); margin-bottom: 20px;">아티스트 명</p>
+                <div style="background: #f8f8f8; padding: 15px; border-radius: 12px; font-size: 14px;">
+                    <strong>작곡가의 한마디:</strong><br>
+                    <span id="mDesc">설명</span>
+                </div>
+            </div>
+            <div style="padding: 30px; background: #fafafa;">
+                <h3 style="margin-bottom: 20px;">피드백</h3>
+                <div class="eval-item" style="margin-bottom:15px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span>평점</span><span id="val1">3.0</span></div>
+                    <input type="range" min="1" max="5" step="0.5" value="3" style="width:100%;" oninput="document.getElementById('val1').innerText=this.value">
+                </div>
+                <textarea id="feedText" style="width:100%; height: 80px; padding: 10px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 15px;" placeholder="조언을 남겨주세요..."></textarea>
+                <button class="btn-pill active" style="width: 100%;" onclick="submitFeedback()">제출</button>
+                <div id="commentList" style="margin-top: 20px; font-size: 13px;"></div>
+                <button onclick="closeModal('detail')" style="margin-top:20px; border:none; background:none; color:#888; cursor:pointer;">창 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 음악 공유 모달 -->
+    <div class="modal" id="shareModal">
+        <div class="modal-content" style="max-width: 500px; padding: 40px;">
+            <h2 style="margin-bottom: 25px;">음악 공유</h2>
+            <div class="input-group">
+                <label>타입</label>
+                <select id="inType">
+                    <option value="YOUTUBE">유튜브 링크</option>
+                    <option value="AUDIO">직접 업로드</option>
+                </select>
+            </div>
+            <div class="input-group"><input type="text" id="inTitle" placeholder="곡 제목"></div>
+            <div class="input-group"><input type="text" id="inUrl" placeholder="URL 입력"></div>
+            <div class="input-group"><textarea id="inDesc" placeholder="설명..."></textarea></div>
+            <button class="btn-pill active" style="width: 100%;" onclick="shareMusic()">공유하기</button>
+            <button onclick="closeModal('share')" style="width:100%; margin-top:10px; background:none; border:none; color:#888; cursor:pointer;">취소</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 데이터 (임시 프론트 데이터, 나중에 백엔드로 옮기면 됨) ---
+        let musicData = [
+            { 
+                id: 1, type: 'YOUTUBE', title: "새로운 재즈 루프 작업물", artist: "JazzMaster", 
+                url: "https://www.youtube.com/embed/O6ztYbmoRqc", 
+                thumb: "https://img.youtube.com/vi/O6ztYbmoRqc/mqdefault.jpg",
+                avgScore: 5.0, desc: "랭킹 1위곡입니다.", comments: []
+            },
+            { 
+                id: 2, type: 'AUDIO', title: "Acoustic Ballad", artist: "SingerSong", 
+                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", 
+                thumb: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400",
+                avgScore: 4.2, desc: "자작곡입니다.", comments: []
+            }
+        ];
+
+        let currentUser = null;
+        let isRankingView = false;
+
+        // --- 페이지 로드 시 실행 ---
+        window.onload = () => {
+            renderList(musicData);
+
+            // 로그인 상태 확인
+            fetch('/api/current-user')
+                .then(res => res.json())
+                .then(user => {
+                    if (user && user.username) {
+                        currentUser = { name: user.nickname || user.username };
+                        document.getElementById('authSection').innerHTML = `
+                            <span style="margin-right:10px; font-weight:600;">${currentUser.name}님</span>
+                            <button class="btn-outline" onclick="handleLogout()">로그아웃</button>
+                        `;
+                    }
+                })
+                .catch(() => {
+                    // 로그인 안 된 경우 기본 버튼 유지
+                });
+        };
+
+        // --- 로그인 처리 ---
+        function handleLogin() {
+            const username = document.getElementById('loginId').value.trim();
+            const password = document.getElementById('loginPw').value;
+
+            if (!username || !password) {
+                alert("아이디와 비밀번호를 입력해주세요.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            fetch('/login', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (res.ok || res.redirected) {
+                    alert("로그인 성공!");
+                    location.reload();
+                } else {
+                    alert("로그인 실패: 아이디 또는 비밀번호를 확인해주세요.");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("서버 오류가 발생했습니다.");
+            });
+        }
+
+        // --- 회원가입 처리 ---
+        function handleSignup() {
+            const username = document.getElementById('regId').value.trim();
+            const password = document.getElementById('regPw').value;
+            const name = document.getElementById('regName').value.trim();
+
+            if (!username || !password || !name) {
+                alert("모든 항목을 입력해주세요.");
+                return;
+            }
+
+            fetch('/user/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'username': username,
+                    'password': password,
+                    'nickname': name
+                })
+            })
+            .then(res => {
+                if (res.ok) {
+                    alert("회원가입 성공! 로그인해주세요.");
+                    closeModal('signup');
+                    document.getElementById('loginId').value = username;
+                    openModal('login');
+                } else {
+                    alert("회원가입 실패 (이미 존재하는 아이디일 수 있습니다)");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("서버 오류");
+            });
+        }
+
+        // --- 로그아웃 ---
+        function handleLogout() {
+            fetch('/logout', { method: 'POST' })
+                .then(() => {
+                    alert("로그아웃되었습니다.");
+                    location.reload();
+                });
+        }
+
+        // --- 리스트 렌더링 ---
+        function renderList(data) {
+            const grid = document.getElementById('musicGrid');
+            grid.innerHTML = '';
+            const displayData = isRankingView ? [...data].sort((a,b) => b.avgScore - a.avgScore) : data;
+
+            displayData.forEach((m, idx) => {
+                const card = document.createElement('div');
+                card.className = 'music-card';
+                card.onclick = () => openDetail(m.id);
+                card.innerHTML = `
+                    ${isRankingView ? `<div class="rank-badge">${idx+1}위</div>` : ''}
+                    <div class="card-thumb">
+                        <span class="media-tag tag-${m.type.toLowerCase()}">${m.type}</span>
+                        <img src="${m.thumb}">
+                    </div>
+                    <div class="card-body">
+                        <h3>${m.title}</h3>
+                        <p>${m.artist}</p>
+                        <div class="score-mini"><span>평점 ${m.avgScore.toFixed(1)}</span></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function filterRanking() { isRankingView = true; renderList(musicData); }
+        function filterType(type) { 
+            isRankingView = false; 
+            if(type === 'ALL') renderList(musicData);
+            else renderList(musicData.filter(m => m.type === type));
+        }
+
+        function openDetail(id) {
+            const m = musicData.find(x => x.id === id);
+            const container = document.getElementById('mediaContainer');
+            container.innerHTML = m.type === 'YOUTUBE' 
+                ? `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;"><iframe src="${m.url}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allowfullscreen></iframe></div>`
+                : `<div style="background:#eee;padding:20px;border-radius:12px;text-align:center;">🎵<audio controls src="${m.url}" style="width:100%;margin-top:10px;"></audio></div>`;
+            
+            document.getElementById('mTitle').innerText = m.title;
+            document.getElementById('mArtist').innerText = m.artist;
+            document.getElementById('mDesc').innerText = m.desc;
+            document.getElementById('detailModal').classList.add('active');
+        }
+
+        function shareMusic() {
+            if(!currentUser) return alert("로그인 후 이용 가능합니다.");
+            const title = document.getElementById('inTitle').value.trim();
+            const url = document.getElementById('inUrl').value.trim();
+            if(!title || !url) return alert("곡 제목과 URL을 입력해주세요.");
+
+            const newData = {
+                id: Date.now(),
+                type: document.getElementById('inType').value,
+                title: title,
+                artist: currentUser.name,
+                url: url,
+                thumb: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400",
+                avgScore: 0.0,
+                desc: document.getElementById('inDesc').value,
+                comments: []
+            };
+            musicData.unshift(newData);
+            renderList(musicData);
+            closeModal('share');
+        }
+
+        function openModal(id) { document.getElementById(id + 'Modal').classList.add('active'); }
+        function closeModal(id) { document.getElementById(id + 'Modal').classList.remove('active'); }
+
+        // 피드백 기능 (임시로 비활성화, 나중에 구현 가능)
+        function submitFeedback() {
+            alert("피드백 제출 완료! (백엔드 구현 필요)");
+        }
+    </script>
+</body>
+</html>
